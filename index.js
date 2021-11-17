@@ -1,70 +1,98 @@
 require("dotenv").config();
+
 const https = require('https');
 const tmi = require("tmi.js");
+const readline = require('readline');
+const { stdin: input, stdout: output } = require('process');
 
 const opts = require("./config");
 
 
-// Create a client with our options
-const client = new tmi.client(opts);
+let exisitingReadlineInterfaceInstance = null;
 
-try {
-  client.on("message", onMessageHandler);
-  client.on("connected", onConnectedHandler);
+/*
+* Only a single channel can be joined at a time.
+* For multiple channels, run a seperate process.
+*/
+const config = readline.createInterface({ input, output });
+config.question("\nEnter a channel to join: ", (channel) => {
+  // Create a client with our options
+  const client = new tmi.client({ ...opts, channels: [channel] });
 
-  client.connect();
-}
-catch (err) { console.error(err); }
+  try {
+    client.on("message", function () { onMessageHandler(client, ...arguments) });
+    client.on("connected", onConnectedHandler);
+
+    client.connect();
+  }
+  catch (err) { console.error(err); }
+});
 
 
-async function onMessageHandler(target, context, msg, self) {
+async function onMessageHandler(client, target, context, msg, self) {
   // Ignore messages that are not from gazatu trivia bot
   if (context["user-id"] !== process.env.ID) { return; }
 
   const request = msg.trim().replace(/\s\s+/g, " ").split(" ");
 
-  const parsedRequest = await parseRequest(request);
-  if (!parsedRequest) { return };
+  const parsedTrivia = await parseTrivia(request);
+  if (!parsedTrivia) { return };
+  const { category, question } = parsedTrivia;
 
-  const { category, question } = parsedRequest;
-  try {
-    const triviaList = await trivia(category);
+  if (exisitingReadlineInterfaceInstance) {
+    exisitingReadlineInterfaceInstance.close();
+  }
+  const rl = readline.createInterface({ input, output });
+  exisitingReadlineInterfaceInstance = rl;
+  rl.question(
+    `\nShould I answer the question, ${question}? Yes/No or Y/N: `,
+    async (response) => {
 
-    const [expectedTrivia] = triviaList
-      .filter(trivia => (trivia.question === question));
-    client.say(target, expectedTrivia.answer);
-  }
-  catch (e) {
-    console.error(e);
-  }
+      if (["Yes", "yes", "Y", "y"].includes(response)) {
+        try {
+          const triviaList = await getTriviaList(category);
+          const [expectedTrivia] = triviaList
+            .filter(trivia => (trivia.question === question));
+
+          client.say(target, expectedTrivia.answer);
+        }
+        catch (e) {
+          console.error(e);
+        }
+      }
+      rl.close();
+    });
 }
 
 
 function onConnectedHandler(addr, port) {
   console.log(`* Connected to ${addr}:${port}`);
+  console.log("\nListening for any trivia questions.");
 }
 
 
 /**
- * 
- * @param {String} category 
- * @returns {Array}
+ * Gets all related trivia questions of a particular category
+ * @param {String} category Trivia category
+ * @returns {Array} List of every instance of trivia corresponding to the
+ * specified category
  */
-function trivia(category) {
+function getTriviaList(category) {
   return new Promise((resolve, reject) => {
     const url = `https://api.gazatu.xyz/trivia/questions?include=[${category}]`;
-    https.get(url, (res) => {
+    https.get(url, (response) => {
+      response.setEncoding('utf8');
 
-      res.setEncoding('utf8');
       let rawData = "";
-      res.on('data', (chunk) => {
+
+      response.on('data', (chunk) => {
         rawData += chunk;
       });
-      res.on('end', () => {
+      response.on('end', () => {
         resolve(JSON.parse(rawData));
       });
-      res.on('error', function (e) {
-        reject(e.message);
+      response.on('error', function (err) {
+        reject(err.message);
       });
     });
   })
@@ -72,17 +100,19 @@ function trivia(category) {
 
 
 /**
- * 
- * @param {Array} request - Array of Gazatu trivia 
+ * Parse and extract the current trivia category and the corresponding question.
+ * @param {Array} request - Array of Gazatu trivia.
+ * @returns {Object} Object literal containing current trivia category and its
+ * corresponding question.
  * @example 
- * `request:` 
+ * <caption>An example of a passed request.</caption> 
  * ```
  * ['1/3', 'category:', 'Pepega', ':)', 'question:', 'Shanghai', 'Pudong', 
  * 'International', 'Airport', 'is', 'an', 'airport', 'in', 'which', 
  * 'municipality?', 'Pepega']
  * ```
  */
-function parseRequest(request) {
+function parseTrivia(request) {
   return new Promise((resolve) => {
     if (
       request.length < 2
