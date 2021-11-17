@@ -23,7 +23,7 @@ async function onMessageHandler(target, context, msg, self) {
 
   const request = msg.trim().replace(/\s\s+/g, " ").split(" ");
 
-  const parsedRequest = parseRequest(request);
+  const parsedRequest = await parseRequest(request);
   if (!parsedRequest) { return };
 
   const { category, question } = parsedRequest;
@@ -31,7 +31,7 @@ async function onMessageHandler(target, context, msg, self) {
     const triviaList = await trivia(category);
 
     const [expectedTrivia] = triviaList
-      .filter(trivia => (trivia.question === question.join(" ")));
+      .filter(trivia => (trivia.question === question));
     client.say(target, expectedTrivia.answer);
   }
   catch (e) {
@@ -83,16 +83,19 @@ function trivia(category) {
  * ```
  */
 function parseRequest(request) {
-  if (
-    request.length < 2
-    || !request[0].match(/^\d+\/\d+$/)
-    || request[1] !== "category:"
-  ) { return }
+  return new Promise((resolve) => {
+    if (
+      request.length < 2
+      || !request[0].match(/^\d+\/\d+$/)
+      || request[1] !== "category:"
+    ) { resolve(false) }
 
-  const question = request.splice(request.indexOf("category:") + 2);
-  question.splice(0, question.indexOf("question:") + 1);
+    const category = request
+      .splice(request.indexOf("category:"), request.indexOf(":)") - 1);
+    category.splice(0, category.indexOf("category:") + 1);
 
-  const category = request.splice(request.indexOf("category:") + 1);
+    const question = request.splice(request.indexOf("question:") + 1);
 
-  return { category, question };
+    resolve({ category: category.join(" "), question: question.join(" ") });
+  });
 }
