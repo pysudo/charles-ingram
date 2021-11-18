@@ -1,5 +1,11 @@
-require("dotenv").config({ path: "./config.txt" });
+if (process.env.NODE_ENV === "dev") {
+    require("dotenv").config({ path: "./.env" });
+}
+else {
+    require("dotenv").config({ path: "./config.txt" });
+}
 const { stdin } = require('process');
+
 
 if (!process.env.TTV_ID && !process.env.TTV_USERNAME) {
     // If no username or ID is specified in env vars
