@@ -1,0 +1,8 @@
+BOT_USERNAME="your_username"
+BOT_TOKEN="your_twitch_auth_token"
+
+
+* Specify either bot's username or ID or both below.
+
+TTV_ID="bot_ID"
+TTV_USERNAME="bot_username"

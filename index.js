@@ -1,14 +1,23 @@
-require("dotenv").config();
+require("dotenv").config({ path: "./config.txt" });
 
 const https = require('https');
 const tmi = require("tmi.js");
 const readline = require('readline');
 const { stdin: input, stdout: output } = require('process');
 
-const opts = require("./config");
+const opts = require("./auth");
 
 
 let exisitingReadlineInterfaceInstance = null;
+
+if (!process.env.TTV_ID && !process.env.TTV_USERNAME) {
+  // If no username or ID is specified in env vars
+  console.log(
+    "\nSpecify either bot's username or ID or both in the config.txt file."
+  );
+  process.exit();
+}
+
 
 /*
 * Only a single channel can be joined at a time.
@@ -19,24 +28,33 @@ config.question("\nEnter a channel to join: ", (channel) => {
   // Create a client with our options
   const client = new tmi.client({ ...opts, channels: [channel] });
 
-  try {
-    client.on("message", function () { onMessageHandler(client, ...arguments) });
-    client.on("connected", onConnectedHandler);
+  client.on("message", function () { onMessageHandler(client, ...arguments); });
+  client.on("connected", onConnectedHandler);
 
-    client.connect();
-  }
-  catch (err) { console.error(err); }
+  client.connect()
+    .then(() => config.close())
+    .catch(err => {
+      if (err === "Unable to connect.") {
+        console.error("\nUnable to connect. Check your internet connection.\n");
+      }
+    });
 });
 
 
 async function onMessageHandler(client, target, context, msg, self) {
   // Ignore messages that are not from gazatu trivia bot
-  if (context["user-id"] !== process.env.ID) { return; }
+  if (process.env.TTV_ID) {
+    if (context["user-id"] !== process.env.TTV_ID) return;
+  }
+  else if (process.env.TTV_USERNAME) {
+    if (context["username"] !== process.env.TTV_USERNAME.toLowerCase()) return;
+  }
 
   const request = msg.trim().replace(/\s\s+/g, " ").split(" ");
 
   const parsedTrivia = await parseTrivia(request);
   if (!parsedTrivia) { return };
+  
   const { category, question } = parsedTrivia;
 
   if (exisitingReadlineInterfaceInstance) {
@@ -54,6 +72,13 @@ async function onMessageHandler(client, target, context, msg, self) {
           const [expectedTrivia] = triviaList
             .filter(trivia => (trivia.question === question));
 
+          if (!expectedTrivia) {
+            console.log(
+              `Trivia for the question and category '${category}' ` +
+              `could not be found :(`
+            );
+            return;
+          }
           client.say(target, expectedTrivia.answer);
         }
         catch (e) {
