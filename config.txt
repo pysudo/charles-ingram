@@ -1,6 +1,12 @@
 BOT_USERNAME="your_username"
 BOT_TOKEN="your_twitch_auth_token"
 
+* Specify the a string or the first part of any space-seperated group of strings that might divide the category and the question into distinct parts.
+* For example, for a trivia such as "1/50 category: harry potter this is not a part of the category question: it's lev...?"
+* Here, The category 'harry potter' and the question is being seperated by a space-seperated group of string junk such as 'this is not a part of the category'.
+* Therefore, assign 'this' as the value for the 'SEPERATOR' variable below as it is the first part of the space-seperated junk 'this is not a part of the category'.
+* Leave it as is if no seperator is identified.
+SEPERATOR=""
 
 * Specify either bot's username or ID or both below.
 

@@ -42,7 +42,10 @@ async function onMessageHandler(client, target, context, msg, self) {
 
   const request = msg.trim().replace(/\s\s+/g, " ").split(" ");
 
-  const parsedTrivia = await parseTrivia(request);
+  const seperator = process.env.SEPERATOR;
+  const parsedTrivia = await parseTrivia(
+    request, (seperator) ? seperator : "question:"
+  );
   if (!parsedTrivia) { return };
 
   const { category, question } = parsedTrivia;
@@ -117,6 +120,8 @@ function getTriviaList(category) {
 /**
  * Parse and extract the current trivia category and the corresponding question.
  * @param {Array} request - Array of Gazatu trivia.
+ * @param {Array} seperator - Specify any seperator term that might seperates
+ * the category and the question into distinct parts.
  * @returns {Object} Object literal containing current trivia category and its
  * corresponding question.
  * @example 
@@ -127,7 +132,7 @@ function getTriviaList(category) {
  * 'municipality?', 'Pepega']
  * ```
  */
-function parseTrivia(request) {
+function parseTrivia(request, seperator) {
   return new Promise((resolve) => {
     if (
       request.length < 2
@@ -136,7 +141,7 @@ function parseTrivia(request) {
     ) { resolve(false) }
 
     const category = request
-      .splice(request.indexOf("category:"), request.indexOf(":)") - 1);
+      .splice(request.indexOf("category:"), request.indexOf(seperator) - 1);
     category.splice(0, category.indexOf("category:") + 1);
 
     const question = request.splice(request.indexOf("question:") + 1);
