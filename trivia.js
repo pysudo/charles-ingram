@@ -40,7 +40,9 @@ async function onMessageHandler(client, target, context, msg, self) {
     if (context["username"] !== process.env.TTV_USERNAME.toLowerCase()) return;
   }
 
-  const request = msg.trim().replace(/\s\s+/g, " ").split(" ");
+  const zeroLengthChar = process.env.ZERO_WIDTH_CHAR | "";
+  const request = msg
+    .replace(zeroLengthChar, "").trim().replace(/\s\s+/g, " ").split(" ");
 
   const seperator = process.env.SEPERATOR;
   const parsedTrivia = await parseTrivia(
@@ -50,28 +52,35 @@ async function onMessageHandler(client, target, context, msg, self) {
 
   const { category, question } = parsedTrivia;
 
+  let expectedTrivia;
+  try {
+    const triviaList = await getTriviaList(category);
+    [expectedTrivia] = triviaList
+      .filter(trivia => (trivia.question === question));
+
+    if (!expectedTrivia) {
+      console
+        .log(`\nTrivia for the question '${question}' could not be found :(`);
+      return;
+    }
+  }
+  catch (e) {
+    console.error(e);
+  }
+
   if (exisitingReadlineInterfaceInstance) {
     exisitingReadlineInterfaceInstance.close();
   }
   const rl = readline.createInterface({ input, output });
   exisitingReadlineInterfaceInstance = rl;
   rl.question(
-    `\nShould I answer the question, ${question}? Yes/No or Y/N: `,
-    async (response) => {
+    `\nTrivia: ${question}` +
+    "\nAnswer: \033[32m" + `${expectedTrivia.answer}` + "\033[0m" +
+    `\nShould I answer the trivia? Yes/No or Y/N: `,
+    (response) => {
 
       if (["Yes", "yes", "Y", "y"].includes(response)) {
         try {
-          const triviaList = await getTriviaList(category);
-          const [expectedTrivia] = triviaList
-            .filter(trivia => (trivia.question === question));
-
-          if (!expectedTrivia) {
-            console.log(
-              `Trivia for the question and category '${category}' ` +
-              `could not be found :(`
-            );
-            return;
-          }
           client.say(target, expectedTrivia.answer);
         }
         catch (e) {
@@ -97,7 +106,8 @@ function onConnectedHandler(addr, port) {
  */
 function getTriviaList(category) {
   return new Promise((resolve, reject) => {
-    const url = `https://api.gazatu.xyz/trivia/questions?include=[${category}]`;
+    const maxInt32 = Math.pow(2, 32 - 1) - 1;
+    const url = `https://api.gazatu.xyz/trivia/questions?count=${maxInt32}&include=[${category}]`;
     https.get(url, (response) => {
       response.setEncoding('utf8');
 

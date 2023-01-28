@@ -8,6 +8,9 @@ BOT_TOKEN="your_twitch_auth_token"
 * Leave it as is if no seperator is identified.
 SEPERATOR=""
 
+* Remove a particular zero-width character that may be present from the question to be queried. 
+ZERO_WIDTH_CHAR=""
+
 * Specify either bot's username or ID or both below.
 
 TTV_ID="bot_ID"
