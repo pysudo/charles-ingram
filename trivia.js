@@ -40,7 +40,7 @@ async function onMessageHandler(client, target, context, msg, self) {
     if (context["username"] !== process.env.TTV_USERNAME.toLowerCase()) return;
   }
 
-  const zeroLengthChar = process.env.ZERO_WIDTH_CHAR | "";
+  const zeroLengthChar = process.env.ZERO_WIDTH_CHAR || "";
   const request = msg
     .replace(zeroLengthChar, "").trim().replace(/\s\s+/g, " ").split(" ");
 
